@@ -3,6 +3,7 @@ from discord.ext import commands
 import logging
 from dotenv import load_dotenv
 import os
+from typing import Optional
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -43,8 +44,6 @@ async def on_message(message):
 @bot.command()
 async def test(ctx):
     await ctx.send(f'testing command {ctx.author.mention}!')
-
-from typing import Optional
 
 # Command to assign roles
 @bot.command()
