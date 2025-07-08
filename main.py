@@ -101,18 +101,18 @@ async def check_new_youtube_video():
             video_url = f'https://www.youtube.com/watch?v={latest_video_id}'
 
             # Get the Discord channel to send the message
-            nofication_channel = bot.get_channel(int(dc_id))
+            notification_channel = bot.get_channel(int(dc_id))
              
-        if nofication_channel:
-            if notif_role == 'everyone':
-                # Send the message to the channel
-                await nofication_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! @everyone\n{video_url}')
-                print("Notification sent to Discord channel.")
+            if notification_channel:
+                if notif_role == 'everyone':
+                    # Send the message to the channel
+                    await notification_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! @everyone\n{video_url}')
+                    print("Notification sent to Discord channel.")
+                else:
+                    await notification_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! <@&{notif_role}>\n{video_url}')
+                    print("Notification sent to Discord channel.")
             else:
-                await nofication_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! <@&{notif_role}>\n{video_url}')
-                print("Notification sent to Discord channel.")
-        else:
-            print(f"ERROR: Channel with ID {dc_id} not found. Please check your .env file.")
+                print(f"ERROR: Channel with ID {dc_id} not found. Please check your .env file.")
     
     except Exception as e:
         print(f"ERROR: An error occurred while checking for new videos: {e}")
