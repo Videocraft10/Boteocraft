@@ -62,7 +62,7 @@ async def check_new_youtube_video():
     # Update next check time
     next_check_time = datetime.datetime.now() + datetime.timedelta(seconds=60)
     
-    print("Checking for new YouTube videos...")
+    print("\nChecking for new YouTube videos...")
 
     try:
         # Request "uploads" playlist of set channel
@@ -326,35 +326,5 @@ async def remove_slash(interaction: discord.Interaction, role: discord.Role, mem
         await interaction.response.send_message("I don't have permission to remove that role.", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
-
-# Slash command to check next video check countdown
-@bot.tree.command(name="nextcheck", description="Shows countdown until next YouTube video check")
-async def next_check(interaction: discord.Interaction):
-    global next_check_time
-    
-    if next_check_time is None:
-        await interaction.response.send_message("Video checking hasn't started yet.", ephemeral=True)
-        return
-    
-    current_time = datetime.datetime.now()
-    time_remaining = next_check_time - current_time
-    
-    if time_remaining.total_seconds() <= 0:
-        await interaction.response.send_message("Next check is happening very soon!", ephemeral=True)
-        return
-    
-    # Calculate minutes and seconds
-    total_seconds = int(time_remaining.total_seconds())
-    minutes = total_seconds // 60
-    seconds = total_seconds % 60
-    
-    if minutes > 0:
-        time_str = f"{minutes} minute(s) and {seconds} second(s)"
-    else:
-        time_str = f"{seconds} second(s)"
-    
-    await interaction.response.send_message(f"Next YouTube video check in: **{time_str}**", ephemeral=True)
-
-
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
