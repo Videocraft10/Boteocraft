@@ -5,14 +5,32 @@ import logging
 from dotenv import load_dotenv
 import os
 from typing import Optional
+from googleapiclient.discovery import build
+from discord.ext import tasks
 
+# Setup
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+yt_api = os.getenv('YOUTUBE_API_KEY')
+yt_id = os.getenv('YOUTUBE_CHANNEL_ID')
+dc_id = os.getenv('DISCORD_CHANNEL_ID')
+
+# -- YT API Setup --
+try:
+    youtube = build('youtube', 'v3', developerKey=yt_api)
+    print("YouTube API initialized successfully.")
+except Exception as e:
+    print(f"Failed to initialize YouTube API: {e}")
+    print("YouTube Bot features will not work")
+    
+last_video_id = None
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
+notif_role = os.getenv('NOTIFICATION_ROLE_ID')
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -27,6 +45,76 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
     print('------')
+    if not check_new_youtube_video.is_running():
+        check_new_youtube_video.start()
+
+@tasks.loop(seconds=60)  # Check every 60 seconds
+async def check_new_youtube_video():
+    global last_video_id
+    print("Checking for new YouTube videos...")
+
+    try:
+        # Request "uploads" playlist of set channel
+        channel_request = youtube.channels().list(
+            part='contentDetails',
+            id=yt_id
+        )
+        channel_response = channel_request.execute()
+
+        # Get the uploads playlist ID
+        uploads_playlist_id = channel_response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+
+        # Request lastest video in the uploads playlist
+        playlsit_request = youtube.playlistItems().list(
+            part='snippet',
+            playlistId=uploads_playlist_id,
+            maxResults=1 # Get only the latest video
+        )
+
+        playlist_response = playlsit_request.execute()
+
+        if not playlist_response['items']:
+            print("No videos found in the uploads playlist.")
+            return
+        
+        # Get the latest video details
+        latest_video = playlist_response['items'][0]
+        latest_video_id = latest_video['snippet']['resourceId']['videoId']
+        latest_video_title = latest_video['snippet']['title']
+
+        # Check if this is the first time running the check
+        if last_video_id is None:
+            # Since this is the first run, store the latest video ID and dont post anything
+            last_video_id = latest_video_id
+            print(f"First run, setting last_video_id to {last_video_id}")
+            return
+        
+        # If the last video ID is different from the latest video ID, its a new vid!
+        if last_video_id != latest_video_id:
+            print(f"New video found: {latest_video_title} (ID: {latest_video_id})")
+            last_video_id = latest_video_id #update the last video ID to the latest one
+
+            # Create YouTube video link
+            video_url = f'https://www.youtube.com/watch?v={latest_video_id}'
+
+            # Get the Discord channel to send the message
+            nofication_channel = bot.get_channel(int(dc_id))
+             
+        if nofication_channel:
+            if notif_role == 'everyone':
+                # Send the message to the channel
+                await nofication_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! @everyone\n{video_url}')
+                print("Notification sent to Discord channel.")
+            else:
+                await nofication_channel.send(f'New video uploaded! {latest_video_title}\nWatch it here! <@&{notif_role}>\n{video_url}')
+                print("Notification sent to Discord channel.")
+        else:
+            print(f"ERROR: Channel with ID {dc_id} not found. Please check your .env file.")
+    
+    except Exception as e:
+        print(f"ERROR: An error occurred while checking for new videos: {e}")
+            
+
 
 # Member join event
 @bot.event
