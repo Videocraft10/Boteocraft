@@ -7,6 +7,7 @@ import os
 from typing import Optional
 from googleapiclient.discovery import build
 from discord.ext import tasks
+import datetime
 
 # Setup
 load_dotenv()
@@ -24,6 +25,7 @@ except Exception as e:
     print("YouTube Bot features will not work")
     
 last_video_id = None
+next_check_time = None
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -47,13 +49,19 @@ async def on_ready():
     print('------')
     if not check_new_youtube_video.is_running():
         check_new_youtube_video.start()
+    if not countdown_display.is_running():
+        countdown_display.start()
 
 
 # YouTube video check loop
 # This function checks for new videos on the specified YouTube channel
 @tasks.loop(seconds=60)  # Check every 60 seconds
 async def check_new_youtube_video():
-    global last_video_id
+    global last_video_id, next_check_time
+    
+    # Update next check time
+    next_check_time = datetime.datetime.now() + datetime.timedelta(seconds=60)
+    
     print("Checking for new YouTube videos...")
 
     try:
@@ -116,7 +124,31 @@ async def check_new_youtube_video():
     
     except Exception as e:
         print(f"ERROR: An error occurred while checking for new videos: {e}")
-            
+
+
+# Countdown display loop - shows countdown in terminal
+@tasks.loop(seconds=1)  # Update every second
+async def countdown_display():
+    global next_check_time
+    
+    if next_check_time is None:
+        return
+    
+    current_time = datetime.datetime.now()
+    time_remaining = next_check_time - current_time
+    
+    if time_remaining.total_seconds() <= 0:
+        return
+    
+    # Calculate total seconds remaining
+    total_seconds = int(time_remaining.total_seconds())
+    
+    # Only show countdown for the last 60 seconds
+    if total_seconds <= 60:
+        print(f"\rNext YouTube check in: {total_seconds} seconds", end="", flush=True)
+    elif total_seconds == 61:
+        # Print a newline when countdown ends to separate from next output
+        print()  
 
 
 # Member join event
@@ -294,6 +326,34 @@ async def remove_slash(interaction: discord.Interaction, role: discord.Role, mem
         await interaction.response.send_message("I don't have permission to remove that role.", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
+
+# Slash command to check next video check countdown
+@bot.tree.command(name="nextcheck", description="Shows countdown until next YouTube video check")
+async def next_check(interaction: discord.Interaction):
+    global next_check_time
+    
+    if next_check_time is None:
+        await interaction.response.send_message("Video checking hasn't started yet.", ephemeral=True)
+        return
+    
+    current_time = datetime.datetime.now()
+    time_remaining = next_check_time - current_time
+    
+    if time_remaining.total_seconds() <= 0:
+        await interaction.response.send_message("Next check is happening very soon!", ephemeral=True)
+        return
+    
+    # Calculate minutes and seconds
+    total_seconds = int(time_remaining.total_seconds())
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    
+    if minutes > 0:
+        time_str = f"{minutes} minute(s) and {seconds} second(s)"
+    else:
+        time_str = f"{seconds} second(s)"
+    
+    await interaction.response.send_message(f"Next YouTube video check in: **{time_str}**", ephemeral=True)
 
 
 
