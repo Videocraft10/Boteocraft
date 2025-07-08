@@ -48,6 +48,9 @@ async def on_ready():
     if not check_new_youtube_video.is_running():
         check_new_youtube_video.start()
 
+
+# YouTube video check loop
+# This function checks for new videos on the specified YouTube channel
 @tasks.loop(seconds=60)  # Check every 60 seconds
 async def check_new_youtube_video():
     global last_video_id
